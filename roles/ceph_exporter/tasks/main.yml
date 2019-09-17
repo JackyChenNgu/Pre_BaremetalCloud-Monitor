@@ -1,0 +1,11 @@
+---
+- name: register ceph exporter name
+  shell:
+    docker ps -a
+  register: ceph_exporter_container
+
+- name: install ceph exporter on ceph cluster
+  shell: | 
+    docker run -d --name ceph_exporter --restart=unless-stopped -v /etc/ceph:/etc/ceph -p "{{ ceph_exporter_host_port }}":"{{ ceph_exporter_container_port }}" -it digitalocean/ceph_exporter
+  when:
+    - '"ceph_exporter" not in ceph_exporter_container.stdout'

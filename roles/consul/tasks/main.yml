@@ -1,0 +1,146 @@
+---
+- name: set fact for docker-compose
+  stat: path=/usr/local/bin/docker-compose
+  register: docker_compose_exists
+
+- name: install docker-compose for monitor node
+  become: true
+  shell: |
+    curl -L "https://github.com/docker/compose/releases/download/1.24.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    chmod +x /usr/local/bin/docker-compose
+  when:
+    docker_compose_exists.stat.exists != True
+    
+- name: check consul directory is exist
+  stat: path="{{ consul_dir }}/config"
+  register: consul_dir_exists 
+ 
+- name: create consul directory
+  file:
+    path: "{{ consul_dir }}/config"
+    state: "directory"
+  when:
+    consul_dir_exists.stat.exists != True
+
+- name: check docker-compose.yaml exists on openstack node
+  stat: path="{{ consul_dir }}/docker-compose.yml"
+  register: docker_compose_ops_yaml_exists
+
+- name: create docker-compose yaml file on ops cluster
+  template:
+    src: docker-compose-openstack.yml.j2
+    dest: "{{ consul_dir }}/docker-compose.yml"
+  when:
+    - docker_compose_ops_yaml_exists.stat.exists != True
+    - inventory_hostname in groups['openstack']
+
+- name: check docker-compose.yaml exists on ceph node
+  stat: path="{{ consul_dir }}/docker-compose.yml"
+  register: docker_compose_ceph_yaml_exists
+
+- name: create docker-compose yaml file on ceph cluster
+  template:
+    src: docker-compose-ceph.yml.j2
+    dest: "{{ consul_dir }}/docker-compose.yml"
+  when:
+    - docker_compose_ceph_yaml_exists.stat.exists != True
+    - inventory_hostname in groups['ceph']
+
+- name: check consul config dir whether exists filename.yml
+  stat: path="{{ consul_dir }}/config/filename.yml"
+  register: consul_config_filename_exists
+
+- name: create consul config filename.yml 
+  copy:
+    src: filename.yml
+    dest: "{{ consul_dir }}/config/filename.yml"
+  when:
+    consul_config_filename_exists.stat.exists != True 
+ 
+- name: check consul config dir whether exists matches.yml
+  stat: path="{{ consul_dir }}/config/matches.yml"
+  register: consul_config_matches_exists
+
+- name: create consul config matches.yml
+  copy:
+    src: matches.yml
+    dest: "{{ consul_dir }}/config/matches.yml"
+  when:
+    consul_config_matches_exists.stat.exists != True
+
+- name: check consul env file
+  stat: path="{{ consul_dir }}/.env"
+  register: consul_env_exists
+
+- name: create consul env file on openstack node
+  template:
+    src: env-openstack.j2
+    dest: "{{ consul_dir }}/.env"
+  when:
+    - consul_env_exists.stat.exists != True
+    - inventory_hostname in groups['openstack']
+
+- name: create consul env file on ceph node
+  template:
+    src: env-ceph.j2
+    dest: "{{ consul_dir }}/.env"
+  when:
+    - consul_env_exists.stat.exists != True
+    - inventory_hostname in groups['ceph']  
+
+- name: register consul hosts
+  shell: |
+    cat /etc/hosts
+  register: node_hosts
+
+- name: add consul server to hosts 
+  shell: | 
+    echo -e "\n" >>/etc/hosts
+    echo "# CONSUL_HOSTS_START" >>/etc/hosts
+    echo "{{ consul_server_hosts }}" >>/etc/hosts
+    echo "# CONSUL_HOSTS_END" >>/etc/hosts
+  when:
+    - 'consul_server_hosts not in node_hosts.stdout'
+
+- name: register consul node exporter iptables rule
+  shell: |
+    cat /etc/sysconfig/iptables
+  register: consul_rules
+  when:
+    - inventory_hostname in groups['openstack']
+
+- name: add consul iptables rules to iptables config file
+  shell: | 
+    sed -i '/"999 drop all ipv4"/i\{{ consul_prometheus_node_exporter_rules }}' /etc/sysconfig/iptables
+    sed -i '/"999 drop all ipv4"/i\{{ consul_cadvisor_rules }}' /etc/sysconfig/iptables
+    sed -i '/"999 drop all ipv4"/i\{{ consul_process_exporter_rules }}' /etc/sysconfig/iptables
+  when: 
+    - inventory_hostname in groups['openstack']
+    - consul_prometheus_node_exporter_rules not in consul_rules.stdout
+    - consul_cadvisor_rules not in consul_rules.stdout
+    - consul_process_exporter_rules not in consul_rules.stdout 
+  notify:
+    - restart iptables when add new rules
+
+- name: register cpuacct,cpu fact
+  stat:
+    path="/sys/fs/cgroup/cpuacct,cpu/"
+  register: cpuacct_with_cpu_exist 
+ 
+- name: add cpu,cpuacct link to cpuacct,cpu
+  shell: |
+    mount -o remount,rw '/sys/fs/cgroup'
+    ln -s /sys/fs/cgroup/cpu,cpuacct /sys/fs/cgroup/cpuacct,cpu
+  when:
+    cpuacct_with_cpu_exist.stat.exists != True
+
+- name: register consul name
+  shell:
+    docker ps -a
+  register: consul_container
+
+- name: docker-compose up consul service
+  shell: |
+    cd "{{ consul_dir }}" && docker-compose up -d
+  when:
+    - '"consul" not in consul_container.stdout'

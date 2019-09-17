@@ -1,0 +1,48 @@
+---
+# overcloud node local repo
+local_repo_server: 10.200.2.184
+
+# ironic conductor socat interfacea
+socat_interface: vlan20
+
+# openstack networking options
+network_interface: vlan20
+
+# ceph networking options
+ceph_network_interface: bond206
+
+# consul directory
+consul_dir: /opt/consul
+consul_use_network_interface: "{{ network_interface }}"
+consul_use_external_ip: "{{ hostvars[inventory_hostname]['ansible_' + consul_use_network_interface]['ipv4']['address'] }}"
+consul_node_hostname: "{{ inventory_hostname }}"
+consul_server_hosts: "10.200.214.101 consul-openstack-consul-server.apps.clouduat.vnet"
+consul_prometheus_node_exporter_rules: -A INPUT -p tcp -m multiport --dports 59100 -m state --state NEW -m comment --comment "59100 prometheus_node_exporter" -j ACCEPT
+consul_cadvisor_rules: -A INPUT -p tcp -m multiport --dports 58080 -m state --state NEW -m comment --comment "58080 cadvisor" -j ACCEPT
+consul_process_exporter_rules: -A INPUT -p tcp -m multiport --dports 59256 -m state --state NEW -m comment --comment "59256 process_exporter" -j ACCEPT
+ceph_exporter_host_port: 59128
+ceph_exporter_container_port: 9128
+
+# ceph cadvisor interface
+consul_ceph_use_external_ip_interface: bond206
+consul_ceph_use_external_ip: "{{ hostvars[inventory_hostname]['ansible_' + consul_ceph_use_external_ip_interface]['ipv4']['address'] }}"
+consul_ceph_cadvisor_port: 59100
+
+# ceph consul optinos
+ceph_consul_use_network_interface: "{{ ceph_network_interface }}"
+ceph_consul_use_external_ip: "{{ hostvars[inventory_hostname]['ansible_' + ceph_consul_use_network_interface]['ipv4']['address'] }}"
+
+# filebeat optinos
+filebeat_dir: /opt/filebeat
+filebeat_server: 10.200.214.23
+filebeat_server_port: 5044
+filebeat_collect_openstack_log:
+  - /var/log/containers/*/*.log
+  - /var/log/containers/*/*/*.log
+filebeat_collect_ceph_log:
+  - /var/log/ceph/*.log
+filebeat_docker_version: 7.3.1
+
+# blackbox options
+blackbox_exporter_port: 59115
+blackbox_exporter_rules: -A INPUT -p tcp -m multiport --dports 59115 -m state --state NEW -m comment --comment "59115 blackbox_exporter" -j ACCEPT

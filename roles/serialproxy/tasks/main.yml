@@ -1,0 +1,5 @@
+---
+- name: install openstack nova serialproxy packages
+  package:
+    name: openstack-nova-serialproxy
+    state: present

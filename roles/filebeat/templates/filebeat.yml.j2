@@ -1,0 +1,15 @@
+filebeat.inputs:
+- type: log
+  paths:
+{% if inventory_hostname in groups['openstack'] %}
+{% for openstack_log_dir in filebeat_collect_openstack_log %}
+    - {{ openstack_log_dir }}
+{% endfor %}
+{% endif %}
+{% if inventory_hostname in groups['ceph'] %}
+{% for ceph_log_dir in filebeat_collect_ceph_log %}
+    - {{ ceph_log_dir }}
+{% endfor %}
+{% endif %}
+output.logstash:
+  hosts: ["{{ filebeat_server }}:{{ filebeat_server_port }}"]

@@ -1,0 +1,12 @@
+---
+- name: setting overcloud node local repository
+  template:
+    src: local.repo.j2
+    dest: /etc/yum.repos.d/local.repo
+
+- name: install base tools for os
+  package:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - vim

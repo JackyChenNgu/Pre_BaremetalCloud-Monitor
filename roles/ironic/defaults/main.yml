@@ -1,0 +1,4 @@
+---
+# defaults file for ironic
+# ironic conductor socat interfacea
+socat_interface: vlan220

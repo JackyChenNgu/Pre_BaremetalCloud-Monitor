@@ -1,0 +1,77 @@
+version: '2'
+
+services:
+#  consul:
+#    image: consul
+#    ports:
+#      - 8300:8300
+#      - 8301:8301
+#      - 8400:8400
+#      - 8500:8500
+#      - 8600:53/udp
+#    #network_mode: "host"
+#    command: agent -bind=${ip} -client=${ip} -join=consul-server-consul-server.apps.clouduat.vnet -data-dir=/tmp/consul
+#    labels:
+#      SERVICE_IGNORE: 'true'
+  registrator:
+    image: gliderlabs/registrator
+    restart: always
+    volumes:
+      - /var/run:/tmp:rw
+      - /etc/localtime:/etc/localtime:ro
+    network_mode: "host"
+#    depends_on:
+#      - consul
+    command: -ip=${ip} -resync=10 -tags="env=openstack-uat" -retry-attempts=10 -retry-interval=5000 consul://consul-openstack-consul-server.apps.clouduat.vnet 
+  node_exporter:
+    image: quay.io/prometheus/node-exporter
+    restart: always
+    pid: "host"
+    ports:
+      - 59100:59100
+    command: 
+      - --web.listen-address=:59100
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --collector.systemd
+      - --no-collector.wifi
+    network_mode: "host"
+    privileged: yes
+    volumes:
+      - /:/rootfs:ro
+      - /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /opt/prometheus_monitor_data:/opt/prometheus_monitor_data:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /etc/localtime:/etc/localtime:ro
+  cadvisor:
+    image: google/cadvisor
+    restart: always
+    ports:
+      - 58080:58080
+    privileged: true
+    command:
+      - -enable_load_reader=true
+      - --port=58080
+    network_mode: "host"
+    volumes:
+      - /:/rootfs:ro 
+      - /var/run:/var/run:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /sys:/sys:ro
+      - /dev/disk/:/dev/disk:ro
+      - /cgroup:/cgroup:ro
+#  process-exporter:
+#    image: ncabatoff/process-exporter
+#    ports:
+#      - 59256:9256
+#    privileged: true
+#    command:
+#      - --procfs=/host/proc 
+#      - -config.path=/config/filename.yml
+#    volumes:
+#      - /proc:/host/proc
+#      - /etc/localtime:/etc/localtime:ro
+#      - ${path}:/config

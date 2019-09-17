@@ -1,0 +1,36 @@
+---
+- name: check filebeat directory is exist
+  stat: path="{{ filebeat_dir }}/config"
+  register: filebeat_dir_exists 
+ 
+- name: create filebeat directory
+  file:
+    path: "{{ filebeat_dir }}"
+    state: "directory"
+  when:
+    filebeat_dir_exists.stat.exists != True
+
+- name: check filebeat.yaml exists
+  stat: path="{{ filebeat_dir }}/filebeat.yml"
+  register: filebeat_yml_exists
+
+- name: Generate filebaet docker yml
+  template:
+    src: filebeat.yml.j2
+    dest: "{{ filebeat_dir }}/filebeat.yml"
+  when:
+    filebeat_yml_exists.stat.exists != True
+
+- name: register filebeat container name
+  shell: |
+    docker ps -a
+  register: filebeat_name
+
+- name: boot filebeat container
+  shell: | 
+    docker run -d --name=filebeat --net host --user=root \
+    --volume="{{ filebeat_dir }}/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro" \
+    --volume="/var/log/containers:/var/log/containers:ro" \
+    --volume="/var/run/docker.sock:/var/run/docker.sock:ro" docker.elastic.co/beats/filebeat:{{ filebeat_docker_version }} filebeat -e -strict.perms=false
+  when:
+    - '"filebeat" not in filebeat_name.stdout'

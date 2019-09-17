@@ -1,0 +1,48 @@
+---
+- import_playbook: gather-facts.yml
+
+- name: Apply role common
+  gather_facts: false
+  hosts:
+    - all
+  roles:
+    - role: common
+
+- name: Apply role consul
+  gather_facts: false
+  hosts:
+    - controller
+    - compute
+    - ironic
+    - ceph
+  roles:
+    - role: consul
+
+- name: Apply role ceph common
+  gather_facts: false
+  hosts:
+    - ceph
+  roles:
+    - role: ceph_common
+
+- name: Apply role filebeat
+  gather_facts: false
+  hosts:
+    - openstack
+    - ceph
+  roles:
+    - role: filebeat
+
+- name: Apply role blackbox_exporter on controller[0]
+  gather_facts: false
+  hosts:
+    - controller[0]
+  roles:
+    - role: blackbox_exporter
+
+- name: Apply role ceph_exporter
+  gather_facts: false
+  hosts:
+    - ceph[0]
+  roles:
+    - role: ceph_exporter

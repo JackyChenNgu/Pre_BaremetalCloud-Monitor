@@ -1,0 +1,15 @@
+---
+- name: install docker packager on ceph cluster
+  package:
+    name: docker
+    state: present
+
+- name: start docker service on ceph cluster
+  service:
+    name: docker
+    state: started
+    enabled: true
+
+#- name: install ceph exporter on ceph cluster
+#  shell: | 
+#    docker run -d --restart=unless-stopped -v /etc/ceph:/etc/ceph -p "{{ ceph_exporter_host_port }}":"{{ ceph_exporter_container_port }}" -it digitalocean/ceph_exporter

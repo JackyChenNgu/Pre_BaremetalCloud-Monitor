@@ -1,0 +1,23 @@
+---
+- name: register blackbox exporter iptables rule
+  shell: |
+    cat /etc/sysconfig/iptables
+  register: blackbox_rules
+
+- name: add consul iptables rules to iptables config file
+  shell: | 
+    sed -i '/"999 drop all ipv4"/i\{{ blackbox_exporter_rules }}' /etc/sysconfig/iptables
+  when: blackbox_exporter_rules not in blackbox_rules.stdout_lines
+  notify:
+    - restart iptables when add new rules
+
+- name: register blackbox name
+  shell:
+    docker ps -a
+  register: blackbox_exporter_name
+
+- name: boot blackbox container on controller
+  shell: |
+    docker run --restart=unless-stopped -d --net=host --name blackbox_exporter  prom/blackbox-exporter:master --web.listen-address=:{{ blackbox_exporter_port }} --config.file=/etc/blackbox_exporter/config.yml
+  when:
+    - '"blackbox_exporter" not in blackbox_exporter_name.stdout'
